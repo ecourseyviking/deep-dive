@@ -627,7 +627,15 @@ function renderStudentFB(){
   el.innerHTML=`<span class="filter-label">Filter:</span>
     <select class="filter-select" onchange="setFilter('eq',this.value)">
       <option value="">All EQs</option>
-      ${S.eqList.map((l,i)=>`<option value="${eqTag(i)}" ${f.eq===eqTag(i)?'selected':''}>${eqTag(i)}: ${esc(l.substring(0,28))}${l.length>28?'...':''}</option>`).join('')}
+      <optgroup label="Stage 1">
+        ${S.eqList.map((l,i)=>`<option value="${eqTag(i)}" ${f.eq===eqTag(i)?'selected':''}>${eqTag(i)}: ${esc(l.substring(0,28))}${l.length>28?'...':''}</option>`).join('')}
+      </optgroup>
+      <optgroup label="Stage 2 — General">
+        ${S2_GENERAL.map((q,i)=>`<option value="S2G${i}" ${f.eq===('S2G'+i)?'selected':''}>${'S2.G'+(i+1)}: ${esc((S.focusArea?q.replace(/\[FA\]/g,faLabel(S.focusArea)):q).substring(0,32))}${q.length>32?'...':''}</option>`).join('')}
+      </optgroup>
+      ${S.focusArea?`<optgroup label="Stage 2 — ${esc(faLabel(S.focusArea))} Specific">
+        ${FOCUS_AREAS[S.focusArea].eqs.map((q,i)=>`<option value="S2F${i}" ${f.eq===('S2F'+i)?'selected':''}>${'S2.F'+(i+1)}: ${esc(q.substring(0,32))}${q.length>32?'...':''}</option>`).join('')}
+      </optgroup>`:''}
     </select>
     <select class="filter-select" onchange="setFilter('tag',this.value)">
       <option value="">All Tags</option>
@@ -648,7 +656,12 @@ function renderCards(){
   const saved=S.cards.filter(c=>c.savedAt);
   const unsaved=S.cards.filter(c=>!c.savedAt);
   let filtered=[...saved];
-  if(S.filter.eq){const idx=S.eqList.findIndex((_,i)=>eqTag(i)===S.filter.eq);if(idx>=0)filtered=filtered.filter(c=>c.eqs[idx]);}
+  if(S.filter.eq){
+    const eq=S.filter.eq;
+    if(eq.startsWith('S2G')){const i=parseInt(eq.slice(3));filtered=filtered.filter(c=>c.s2genChecked&&c.s2genChecked[i]);}
+    else if(eq.startsWith('S2F')){const i=parseInt(eq.slice(3));filtered=filtered.filter(c=>c.s2focusChecked&&c.s2focusChecked[i]);}
+    else{const idx=S.eqList.findIndex((_,i)=>eqTag(i)===eq);if(idx>=0)filtered=filtered.filter(c=>c.eqs[idx]);}
+  }
   if(S.filter.tag)filtered=filtered.filter(c=>c.tags&&c.tags.includes(S.filter.tag));
   if(S.filter.section)filtered=filtered.filter(c=>c.section===S.filter.section);
   let html='';
@@ -735,7 +748,12 @@ function renderTCards(){
 
   // apply filters
   let filtered=[...saved];
-  if(tf.eq){const idx=S.eqList.findIndex((_,i)=>eqTag(i)===tf.eq);if(idx>=0)filtered=filtered.filter(c=>c.eqs[idx]);}
+  if(tf.eq){
+    const eq=tf.eq;
+    if(eq.startsWith('S2G')){const i=parseInt(eq.slice(3));filtered=filtered.filter(c=>c.s2genChecked&&c.s2genChecked[i]);}
+    else if(eq.startsWith('S2F')){const i=parseInt(eq.slice(3));filtered=filtered.filter(c=>c.s2focusChecked&&c.s2focusChecked[i]);}
+    else{const idx=S.eqList.findIndex((_,i)=>eqTag(i)===eq);if(idx>=0)filtered=filtered.filter(c=>c.eqs[idx]);}
+  }
   if(tf.tag)filtered=filtered.filter(c=>c.tags&&c.tags.includes(tf.tag));
   if(tf.student)filtered=filtered.filter(c=>(c.createdBy||'Unknown')===tf.student);
   const shown=filtered.length;
@@ -795,7 +813,15 @@ function renderTCards(){
         <span class="filter-label">EQ:</span>
         <select class="filter-select" onchange="setTFilter('eq',this.value)">
           <option value="">All EQs</option>
-          ${S.eqList.map((l,i)=>`<option value="${eqTag(i)}" ${tf.eq===eqTag(i)?'selected':''}>${eqTag(i)}: ${esc(l.substring(0,28))}${l.length>28?'...':''}</option>`).join('')}
+          <optgroup label="Stage 1">
+            ${S.eqList.map((l,i)=>`<option value="${eqTag(i)}" ${tf.eq===eqTag(i)?'selected':''}>${eqTag(i)}: ${esc(l.substring(0,28))}${l.length>28?'...':''}</option>`).join('')}
+          </optgroup>
+          <optgroup label="Stage 2 — General">
+            ${S2_GENERAL.map((q,i)=>`<option value="S2G${i}" ${tf.eq===('S2G'+i)?'selected':''}>${'S2.G'+(i+1)}: ${esc((S.teacherGroupFocus?q.replace(/\[FA\]/g,faLabel(S.teacherGroupFocus)):q).substring(0,32))}${q.length>32?'...':''}</option>`).join('')}
+          </optgroup>
+          ${S.teacherGroupFocus?`<optgroup label="Stage 2 — ${esc(faLabel(S.teacherGroupFocus))} Specific">
+            ${FOCUS_AREAS[S.teacherGroupFocus].eqs.map((q,i)=>`<option value="S2F${i}" ${tf.eq===('S2F'+i)?'selected':''}>${'S2.F'+(i+1)}: ${esc(q.substring(0,32))}${q.length>32?'...':''}</option>`).join('')}
+          </optgroup>`:''}
         </select>
         <span class="filter-label" style="margin-left:8px">Tag:</span>
         <select class="filter-select" onchange="setTFilter('tag',this.value)">
