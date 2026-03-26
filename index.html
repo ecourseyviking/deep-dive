@@ -325,6 +325,25 @@ textarea{resize:vertical;min-height:60px;line-height:1.5}
 .suggest-item:last-child{border-bottom:none}
 .suggest-item:hover,.suggest-item.active{background:#eef5ff;color:#0d2b45}
 .suggest-item .suggest-new{color:#1a6b5a;font-style:italic}
+
+/* VERSION HISTORY MODAL */
+.vh-version-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1.5px solid #ddd5c4;border-radius:4px;background:#faf8f3;transition:border-color .12s;margin-bottom:8px}
+.vh-version-item:hover{border-color:#0d2b45;background:#f5f0e8}
+.vh-ts{flex:1}
+.vh-ts-main{font-family:'Playfair Display',serif;font-size:13px;color:#0d2b45;font-weight:700}
+.vh-ts-sub{font-family:'DM Mono',monospace;font-size:9.5px;color:#8a7d68;margin-top:2px}
+.vh-view-btn{background:#0d2b45;color:#f5f0e8;border:none;padding:6px 14px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;flex-shrink:0;transition:background .15s}
+.vh-view-btn:hover{background:#d4930a}
+.vh-card{background:#fffef9;border:1.5px solid #ddd5c4;border-radius:4px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px}
+.vh-card-main{flex:1;min-width:0}
+.vh-card-title{font-family:'Playfair Display',serif;font-size:13px;color:#0d2b45;font-weight:700;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.vh-card-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.vh-restore-btn{background:#1a6b5a;color:#fff;border:none;padding:7px 14px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;flex-shrink:0;transition:background .15s}
+.vh-restore-btn:hover{background:#155548}
+.vh-restore-btn:disabled{background:#aaa;cursor:not-allowed}
+.vh-back-btn{background:none;border:1px solid #ddd5c4;color:#8a7d68;padding:6px 14px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;margin-bottom:14px;transition:all .15s}
+.vh-back-btn:hover{border-color:#0d2b45;color:#0d2b45}
+.vh-empty{text-align:center;padding:40px 20px;font-style:italic;color:#8a7d68;font-size:13px}
 </style>
 </head>
 <body>
@@ -335,9 +354,9 @@ textarea{resize:vertical;min-height:60px;line-height:1.5}
 
 // ── CONFIGURATION — fill these in before uploading ──────────
 // Your Apps Script /exec deployment URL
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEDIXocsdMe1DcB0JaG_VQ7pPrqgHCV2x1xKnBWA0FZ-NLVM6Rs2SFtOnT-4xK2-RW2Q/exec';
+const SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
 // Your Google OAuth Client ID from Google Cloud Console
-const GOOGLE_CLIENT_ID = '164298820511-6b48l658b31cqgq2gcndd8ndlm4pf1q9.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = 'PASTE_YOUR_GOOGLE_CLIENT_ID_HERE';
 // Your school domain (e.g. 'myschool.edu') — enforced server-side
 // You do NOT need to change this in the HTML; set it in Code.gs instead.
 
@@ -598,6 +617,7 @@ function showStudent(){
         <div class="header-sub">Group: <strong>${esc(S.groupId)}</strong> &nbsp;|&nbsp; ${esc(S.studentName)}</div></div>
       </div>
       <div class="header-right">
+        <button class="export-header-btn" onclick="openVersionHistory()" style="background:rgba(255,255,255,.1)">&#x1F4C2; History</button>
         <button class="export-header-btn" onclick="triggerImport()" style="background:rgba(255,255,255,.15)">&#x2B06; Import CSV</button>
         <button class="export-header-btn" onclick="openStudentExportModal()">&#x2B07; Export Notes</button>
         <button class="logout-btn" onclick="logout()">&#x2190; Logout</button>
@@ -1909,6 +1929,136 @@ function showAuthError(err){
   </div>`;
 }
 
+
+// ── VERSION HISTORY ──────────────────────────────────────────
+async function openVersionHistory(){
+  const root=document.getElementById('modal-root');
+  root.innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal-box" style="max-width:680px;max-height:85vh;overflow-y:auto">
+      <div class="modal-title" style="margin-bottom:4px">&#x1F4C2; Version History</div>
+      <div class="modal-sub" style="margin-bottom:16px">Past snapshots of your group&rsquo;s saved cards</div>
+      <div id="vh-content"><div class="loading-msg">Loading versions&hellip;</div></div>
+      <div style="margin-top:16px;text-align:right">
+        <button class="modal-cancel-btn" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>`;
+  try{
+    const raw=await api_('listCardVersions','dd-cards-'+S.groupId);
+    const versions=JSON.parse(raw||'[]');
+    renderVersionList(versions);
+  }catch(err){
+    const el=document.getElementById('vh-content');
+    if(el)el.innerHTML=`<div style="color:#c0392b;font-size:13px">Could not load versions: ${esc((err&&err.message)||'unknown error')}</div>`;
+  }
+}
+
+function renderVersionList(versions){
+  const el=document.getElementById('vh-content');if(!el)return;
+  if(!versions.length){
+    el.innerHTML=`<div class="vh-empty">
+      &#x1F4C2; No saved snapshots yet.<br><br>
+      <span style="font-size:12px">Snapshots are created automatically each time your cards are saved.
+      They will appear here after your group has saved a few times.</span>
+    </div>`;
+    return;
+  }
+  el.innerHTML=versions.map((v,idx)=>{
+    const d=new Date(v.ts);
+    const dateStr=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    return`<div class="vh-version-item">
+      <div class="vh-ts">
+        <div class="vh-ts-main">${esc(dateStr)} &mdash; ${esc(timeStr)}</div>
+        <div class="vh-ts-sub">${v.cardCount} card${v.cardCount!==1?'s':''} in this snapshot</div>
+      </div>
+      <button class="vh-view-btn" onclick="loadVersionCards(${v.ts})">View Cards &#x25BC;</button>
+    </div>`;
+  }).join('');
+}
+
+async function loadVersionCards(ts){
+  const el=document.getElementById('vh-content');if(!el)return;
+  el.innerHTML='<div class="loading-msg">Loading snapshot&hellip;</div>';
+  try{
+    const raw=await api_('getCardVersion','dd-cards-'+S.groupId,ts);
+    const cards=JSON.parse(raw||'[]');
+    renderVersionCards(cards,ts);
+  }catch(err){
+    el.innerHTML=`<div style="color:#c0392b;font-size:13px">Could not load snapshot: ${esc((err&&err.message)||'unknown error')}</div>
+      <button class="vh-back-btn" onclick="openVersionHistory()">&#x2190; Back to list</button>`;
+  }
+}
+
+function renderVersionCards(cards,ts){
+  const el=document.getElementById('vh-content');if(!el)return;
+  const d=new Date(ts);
+  const label=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const currentIds=new Set(S.cards.filter(c=>c.savedAt).map(c=>c.id));
+  const savedCards=cards.filter(c=>c.savedAt);
+
+  if(!savedCards.length){
+    el.innerHTML=`<button class="vh-back-btn" onclick="openVersionHistory()">&#x2190; Back to list</button>
+      <div class="vh-empty">This snapshot contains no saved cards.</div>`;
+    return;
+  }
+
+  let html=`<button class="vh-back-btn" onclick="openVersionHistory()">&#x2190; Back to version list</button>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#8a7d68;margin-bottom:12px">
+      Snapshot from ${esc(label)} &mdash; ${savedCards.length} card${savedCards.length!==1?'s':''}
+    </div>`;
+
+  savedCards.forEach(card=>{
+    const alreadyIn=currentIds.has(card.id);
+    const eqOn=(card.eqs||[]).map((v,i)=>v?i:-1).filter(i=>i>=0);
+    const titleEl=card.url?`<a href="${esc(card.url)}" target="_blank" class="source-link">${esc(card.sourceTitle||'Untitled')} &#x2197;</a>`:`<span class="vh-card-title">${esc(card.sourceTitle||'Untitled')}</span>`;
+    html+=`<div class="vh-card" id="vhc-${esc(card.id)}">
+      <div class="vh-card-main">
+        <div class="vh-card-title">${card.url?`<a href="${esc(card.url)}" target="_blank" style="color:#0d2b45;font-style:italic;text-decoration:none">${esc(card.sourceTitle||'Untitled')} &#x2197;</a>`:esc(card.sourceTitle||'Untitled')}</div>
+        <div class="vh-card-meta">
+          <span class="by-label">By: ${esc(card.createdBy||'?')}</span>
+          ${card.sourceType?`<span class="badge badge-${card.sourceType}">${card.sourceType==='study'?'&#x1F52C; Study':'&#x1F4F0; News/Health'}</span>`:''}
+          ${eqOn.map(i=>`<span class="mini-badge ${eqCls(i)}">${eqTag(i)}</span>`).join('')}
+          ${(card.tags||[]).map(t=>`<span class="mini-badge tag-mini">&#x23;${esc(t)}</span>`).join('')}
+          ${card.section?`<span class="mini-badge section-mini">&#x1F4DD; ${esc(card.section)}</span>`:''}
+        </div>
+      </div>
+      <button class="vh-restore-btn" id="vhbtn-${esc(card.id)}"
+        ${alreadyIn?'disabled title="This card is already in your current notes"':''}
+        onclick="restoreHistoryCard(${JSON.stringify(JSON.stringify(card))},this)">
+        ${alreadyIn?'&#x2713; In Notes':'&#x21A9; Restore'}
+      </button>
+    </div>`;
+  });
+
+  el.innerHTML=html;
+}
+
+async function restoreHistoryCard(cardJson,btn){
+  const card=JSON.parse(cardJson);
+  if(!card||!card.id)return;
+  btn.disabled=true;btn.textContent='Restoring…';
+  card.collapsed=true;
+  if(!card.savedAt)card.savedAt=Date.now();
+  // Pad to current EQ structure
+  padCard(card);
+  try{
+    const updatedJson=await api_('upsertCard','dd-cards-'+S.groupId,JSON.stringify(card));
+    if(updatedJson){
+      const serverCards=JSON.parse(updatedJson);
+      serverCards.forEach(padCard);
+      const unsaved=S.cards.filter(c=>!c.savedAt);
+      S.cards=[...serverCards,...unsaved];
+    }
+    btn.textContent='✓ Restored';
+    btn.style.background='#2a3e8c';
+    showSaveStatus('✓ Card restored: '+esc(card.sourceTitle||'Untitled'),true);
+    backupToLocal();
+  }catch(err){
+    btn.disabled=false;btn.textContent='↩ Restore';
+    showSaveStatus('✗ Restore failed — '+((err&&err.message)||'please try again'),false);
+  }
+}
 window.addEventListener('load',()=>{
   // Wait for GIS library before initializing
   function init(){if(typeof google!=='undefined'&&google.accounts)showLogin();else setTimeout(init,100);}
