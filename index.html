@@ -1997,6 +1997,11 @@ function renderVersionCards(cards,ts){
   const currentIds=new Set(S.cards.filter(c=>c.savedAt).map(c=>c.id));
   const savedCards=cards.filter(c=>c.savedAt);
 
+  // Store cards by ID so restore buttons can look them up without
+  // embedding the full card data in HTML attributes.
+  window._vhCards={};
+  savedCards.forEach(c=>{window._vhCards[c.id]=c;});
+
   if(!savedCards.length){
     el.innerHTML=`<button class="vh-back-btn" onclick="openVersionHistory()">&#x2190; Back to list</button>
       <div class="vh-empty">This snapshot contains no saved cards.</div>`;
@@ -2011,7 +2016,6 @@ function renderVersionCards(cards,ts){
   savedCards.forEach(card=>{
     const alreadyIn=currentIds.has(card.id);
     const eqOn=(card.eqs||[]).map((v,i)=>v?i:-1).filter(i=>i>=0);
-    const titleEl=card.url?`<a href="${esc(card.url)}" target="_blank" class="source-link">${esc(card.sourceTitle||'Untitled')} &#x2197;</a>`:`<span class="vh-card-title">${esc(card.sourceTitle||'Untitled')}</span>`;
     html+=`<div class="vh-card" id="vhc-${esc(card.id)}">
       <div class="vh-card-main">
         <div class="vh-card-title">${card.url?`<a href="${esc(card.url)}" target="_blank" style="color:#0d2b45;font-style:italic;text-decoration:none">${esc(card.sourceTitle||'Untitled')} &#x2197;</a>`:esc(card.sourceTitle||'Untitled')}</div>
@@ -2025,7 +2029,7 @@ function renderVersionCards(cards,ts){
       </div>
       <button class="vh-restore-btn" id="vhbtn-${esc(card.id)}"
         ${alreadyIn?'disabled title="This card is already in your current notes"':''}
-        onclick="restoreHistoryCard(${JSON.stringify(JSON.stringify(card))},this)">
+        onclick="restoreHistoryCard('${esc(card.id)}',this)">
         ${alreadyIn?'&#x2713; In Notes':'&#x21A9; Restore'}
       </button>
     </div>`;
@@ -2034,8 +2038,8 @@ function renderVersionCards(cards,ts){
   el.innerHTML=html;
 }
 
-async function restoreHistoryCard(cardJson,btn){
-  const card=JSON.parse(cardJson);
+async function restoreHistoryCard(cardId,btn){
+  const card=window._vhCards&&window._vhCards[cardId];
   if(!card||!card.id)return;
   btn.disabled=true;btn.textContent='Restoring…';
   card.collapsed=true;
